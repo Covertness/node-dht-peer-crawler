@@ -1,7 +1,7 @@
 express = require 'express'
 cors = require 'cors'
 DHTCrawler = require './dht-crawler'
-Restful = require('./dht-restful')
+Restful = require './dht-restful'
 
 app = express()
 app.use cors()
