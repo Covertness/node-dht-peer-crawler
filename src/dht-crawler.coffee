@@ -1,17 +1,28 @@
 KBucket = require 'k-bucket'
 events = require 'events'
 inherits = require 'inherits'
+path = require 'path'
 bencode = require 'bencode'
+bncode = require 'bncode'
 ht = require 'ht'
-Set = require 'collections/set'
+Map = require 'collections/map'
+hll = require 'hll'
+magnet = require 'magnet-uri'
+pws = require 'peer-wire-swarm'
+hat = require 'hat'
 Network = require './dht-network'
 dht = require './dht'
+exchangeMetadata = require './torrent-exchange-metadata'
 
 defaultOptions =
 	listenPort: 6881
 	messageTimeout: 60 * 1000
 	pingInterval: 3 * 60 * 1000
 	findInterval: 2 * 60 * 1000
+	infoHashTimeout: 60 * 60 * 1000
+	maxRouteTableLen: 500
+	maxQueryNodesLen: 100
+	maxAnnounceNodesLen: 1000
 
 module.exports =
 	class DHTCrawler extends events.EventEmitter
@@ -23,10 +34,11 @@ module.exports =
 				
 			@routeTable = new KBucket
 			@messageTable = new ht
-			@infoHashTable = new ht
+			@infoHashTable = new Map {}
 
 			@nodeId = @routeTable.localNodeId
 			@token = @generateId 8
+			@peerId = '-TS0008-' + hat(48)
 
 			@network = new Network @options
 
@@ -44,33 +56,96 @@ module.exports =
 			@network.on 'error', (message, address) =>
 				@handleErrorMessage message, address
 
-			bootstrapNode =
+			@bootstrapNode =
 				id: new Buffer('')
 				address:
 					ip: 'router.bittorrent.com'
 					port: 6881
 				lastActive: Date.now()
 				pingInterval: setInterval () =>
-					@ping bootstrapNode
+					@ping @bootstrapNode
 				, @options.pingInterval
 
-			@routeTable.add bootstrapNode
-			@findMoreNodes()                   # find once immediately
+			@routeTable.add @bootstrapNode
+
+			@findMoreNodes(@routeTable.toArray())  # find once immediately
+
 			@findInterval = setInterval () =>
-				@findMoreNodes()
+				allNodes = @routeTable.toArray()
+
+				console.log 'route table length', allNodes.length
+				console.log 'info_hash table length', @infoHashTable.length
+
+				if allNodes.length < @options.maxRouteTableLen
+					@findMoreNodes(allNodes)
+				else
+					@getMorePeers()
+
 			, @options.findInterval
 
 
-		findMoreNodes: () ->
-			allNodes = @routeTable.toArray()
+		getAllNodes: () ->
+			date = new Date()
+			for node in @routeTable.toArray()
+				date.setTime(node.lastActive)
+				{ip: node.address.ip, lastActive: date.toUTCString()}
 
-			console.log 'route table length', allNodes.length
-			console.log 'info_hash table length', @infoHashTable.keys().length
 
-			if allNodes.length > 1000
-				console.log 'route table is overload'
-				return
+		getAllInfoHashs: () ->
+			date = new Date()
+			for item in @infoHashTable.entries()
+				infoHash = item[0]
+				torrent = item[1]
+				{
+					infoHash: infoHash
+					queryNodesNum: torrent.queryNodes.estimate()
+					announceNodesNum: torrent.announceNodes.estimate()
+				}
 
+
+		getTorrent: (infoHash) ->
+			magnetLink = magnet.encode {
+				xt: ['urn:btih:' + infoHash.toUpperCase()]
+			}
+
+			torrent = @infoHashTable.get infoHash, null
+			if torrent != null and torrent.metadata != undefined
+				name = 
+					if torrent.metadata.name != undefined
+						torrent.metadata.name.toString()
+					else if torrent.metadata['name.utf-8'] != undefined
+						torrent.metadata['name.utf-8'].toString()
+					else
+						''
+
+				tpath =
+					if torrent.metadata.files != undefined
+						files = torrent.metadata.files
+						files.map (file, i) =>
+							parts = [].concat(name, file['path.utf-8'] || file.path || []).map (p) =>
+								return p.toString()
+
+							{
+								path: path.join.apply(null, [path.sep].concat(parts)).slice(1)
+								name: parts[parts.length - 1]
+								length: file.length
+							}
+					else
+						[]
+
+				pieceLength = torrent.metadata['piece length'] || 0
+
+				{
+					magnet: magnetLink
+					name: name
+					path: tpath
+					pieceLength: pieceLength
+				}
+			else
+				{magnet: magnetLink}
+
+
+		findMoreNodes: (allNodes) ->
 			@findNode knownNode for knownNode in allNodes
 
 
@@ -87,22 +162,58 @@ module.exports =
 				if resp.id == undefined or resp.nodes == undefined
 					return
 
-				nodesBin = resp.nodes
-				if nodesBin.length % 26 != 0
-					console.log 'invalid find_node resp'
-					return
-
-				for i in [0..nodesBin.length-1] by 26
-					n = {
-						id: nodesBin.slice(i, i + 20)
-						address:
-							ip: nodesBin[i + 20] + "." + nodesBin[i + 21] + "." + nodesBin[i + 22] + "." + nodesBin[i + 23]
-							port: nodesBin.readUInt16BE(i + 24)
-					}
-
-					@addNode n
+				@addNodes resp.nodes
 
 			@network.sendMessage message, remoteNode.address
+
+
+		getMorePeers: () ->
+			for item in @infoHashTable.entries()
+				infoHash = item[0]
+
+				closestNodes = @routeTable.closest({id: new Buffer(infoHash, 'hex')}, 16)
+				for node in closestNodes
+					@getPeers infoHash, node.address
+
+
+		getPeers: (infoHash, remoteAddress) ->
+			message =
+				t: @generateId 2
+				y: dht.typeCodes['query']
+				q: 'get_peers'
+				a:
+					id: @nodeId
+					target: infoHash
+
+			@registerQueryMessage message, (resp, address) =>
+				if resp.id == undefined
+					return
+
+				if resp.values != undefined
+					peersBin = resp.values
+					if peersBin.length % 6 != 0
+						console.log 'invalid get_peers resp'
+						return
+
+					torrent = 
+						if @infoHashTable.has infoHash
+							@infoHashTable.get infoHash
+						else
+							@addInfoHash infoHash
+
+					for i in [0..peersBin.length-1] by 6
+						ipStr = nodesBin[i] + "." + nodesBin[i + 1] + "." + nodesBin[i + 2] + "." + nodesBin[i + 3]
+						port = nodesBin.readUInt16BE(i + 4)
+						addressStr = ipStr + ':' + port
+
+						torrent.announceNodes.insert addressStr
+						torrent.swarm.add addressStr
+
+					torrent.lastActive = Date.now()
+				else if resp.nodes != undefined
+					@addNodes resp.nodes
+
+			@network.sendMessage message, remoteAddress
 
 
 		ping: (remoteNode) ->
@@ -118,8 +229,13 @@ module.exports =
 					console.log 'invalid ping resp'
 					return
 
-				remoteNode.id = resp.id
-				remoteNode.lastActive = Date.now()
+				if KBucket.distance(remoteNode.id, resp.id) == 0
+					remoteNode.lastActive = Date.now()
+				else if remoteNode == @bootstrapNode
+					remoteNode.id = resp.id
+					remoteNode.lastActive = Date.now()
+					@routeTable.remove remoteNode
+					@routeTable.add remoteNode
 
 			@network.sendMessage message, remoteNode.address
 
@@ -131,16 +247,13 @@ module.exports =
 
 			query = message.q.toString()
 			if query == 'ping'
-				resp =
-					t: message.t
-					y: dht.typeCodes['response']
-					r:
-						id: @nodeId
-				@network.sendMessage resp, address
+				@handlePing message, address
 			else if query == 'find_node'
 				@handleFindNode message, address
 			else if query == 'get_peers'
 				@handleGetPeers message, address
+			else if query == 'announce_peer'
+				@handleAnnouncePeer message, address
 			else
 				console.log 'receive query message', query, 'from', address.ip
 
@@ -162,6 +275,15 @@ module.exports =
 
 		handleErrorMessage: (message, address) ->
 			console.log 'receive error message', message, 'from', address.ip
+
+
+		handlePing: (message, address) ->
+			resp =
+				t: message.t
+				y: dht.typeCodes['response']
+				r:
+					id: @nodeId
+			@network.sendMessage resp, address
 
 
 		handleFindNode: (message, address) ->
@@ -192,15 +314,15 @@ module.exports =
 				console.log 'invaild get_peers message'
 				return
 
-			if @infoHashTable.contains(args.info_hash)
-				torrent = @infoHashTable.get args.info_hash
-				torrent.queryNodes.add(args.id)
-				torrent.lastActive = Date.now()
-			else
-				torrent =
-					queryNodes: new Set [args.id]
-					lastActive: Date.now()
-				@infoHashTable.put args.info_hash, torrent
+			infoHashStr = args.info_hash.toString 'hex'
+			torrent = 
+				if @infoHashTable.has infoHashStr
+					@infoHashTable.get infoHashStr
+				else
+					@addInfoHash infoHashStr
+
+			torrent.queryNodes.insert args.id.toString 'hex'
+			torrent.lastActive = Date.now()
 
 			nodesBin = @getClosestNodesBin args.info_hash
 			
@@ -214,6 +336,37 @@ module.exports =
 			@network.sendMessage resp, address
 
 
+		handleAnnouncePeer: (message, address) ->
+			args = message.a
+			if args.id == undefined or args.info_hash == undefined or args.port == undefined
+				console.log 'invaild get_peers message'
+				return
+
+			infoHashStr = args.info_hash.toString 'hex'
+			torrent = 
+				if @infoHashTable.has infoHashStr
+					@infoHashTable.get infoHashStr
+				else
+					@addInfoHash infoHashStr
+
+			ipStr = address.ip
+			port = if args.implied_port != undefined and args.implied_port == 1
+				address.port
+			else
+				args.port
+			addressStr = ipStr + ':' + port
+
+			torrent.announceNodes.insert addressStr
+			torrent.lastActive = Date.now()
+			torrent.swarm.add addressStr
+
+			resp =
+				t: message.t
+				y: dht.typeCodes['response']
+				r:
+					id: @nodeId
+			@network.sendMessage resp, address
+
 		registerQueryMessage: (message, messageHandler) ->
 			messageHandlers =
 				q: message.q
@@ -225,24 +378,77 @@ module.exports =
 			@messageTable.put message.t, messageHandlers
 
 
+		addNodes: (nodesBin) ->
+			if nodesBin.length % 26 != 0
+				console.log 'invalid find_node resp'
+				return
+
+			for i in [0..nodesBin.length-1] by 26
+				n = {
+					id: nodesBin.slice(i, i + 20)
+					address:
+						ip: nodesBin[i + 20] + "." + nodesBin[i + 21] + "." + nodesBin[i + 22] + "." + nodesBin[i + 23]
+						port: nodesBin.readUInt16BE(i + 24)
+				}
+
+				@addNode n
+
+
 		addNode: (node) ->
-			if node.id != @nodeId
-				node.lastActive = Date.now()
-				node.pingInterval = setInterval () =>
-					@ping node
-				, @options.pingInterval
-				node.checkInterval = setInterval () =>
-					if Date.now() - node.lastActive > 3 * @options.pingInterval
-						clearInterval node.pingInterval
-						clearInterval node.checkInterval
-						@routeTable.remove node
-				, 3 * @options.pingInterval
+			allNodes = @routeTable.toArray()
 
-				@routeTable.add node
+			if allNodes.length > @options.maxRouteTableLen
+				console.log 'route table is overload'
+				return
+
+			existNode = @routeTable.get node.id
+
+			if existNode == null
+				if KBucket.distance(node.id, @nodeId) != 0
+					node.lastActive = Date.now()
+					node.pingInterval = setInterval () =>
+						@ping node
+					, @options.pingInterval
+					node.checkInterval = setInterval () =>
+						if Date.now() - node.lastActive > 3 * @options.pingInterval
+							clearInterval node.pingInterval
+							clearInterval node.checkInterval
+							@routeTable.remove node
+					, 3 * @options.pingInterval
+
+					@routeTable.add node
+			else
+				existNode.lastActive = Date.now()
 
 
-		getClosestNodesBin: (nodeId) ->
-			closestNodes = @routeTable.closest({id: nodeId}, 16)
+		addInfoHash: (infoHash) ->
+			swarm = pws infoHash, @peerId
+			torrent =
+				queryNodes: hll()
+				announceNodes: hll()
+				swarm: swarm
+				lastActive: Date.now()
+				checkInterval: setInterval () =>
+					if Date.now() - torrent.lastActive >= @options.infoHashTimeout
+						clearInterval torrent.checkInterval
+						swarm.destroy()
+						@infoHashTable.delete infoHash
+				, @options.infoHashTimeout
+
+			exchange = exchangeMetadata infoHash, (metadata) =>
+				torrent.metadata = bncode.decode metadata
+				console.log infoHash, 'got metadata'
+				swarm.destroy()
+
+			swarm.on 'wire', (wire) =>
+				exchange(wire)
+
+			@infoHashTable.set infoHash, torrent
+			torrent
+
+
+		getClosestNodesBin: (id) ->
+			closestNodes = @routeTable.closest({id: id}, 16)
 			nodesBin = new Buffer(closestNodes.length * 26)
 			pos = 0
 			for node in closestNodes
