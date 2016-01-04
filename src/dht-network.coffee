@@ -34,9 +34,9 @@ module.exports =
 			@udpSocket.bind @options.listenPort
 
 		sendMessage: (message, address) ->
-			# console.log 'send message', message
-			data = bencode.encode message
-			@udpSocket.send data, 0, data.length, address.port, address.ip
+			if address.port > 0 and address.port < 65536
+				data = bencode.encode message
+				@udpSocket.send data, 0, data.length, address.port, address.ip
 
 		close: () ->
 			@udpSocket.close
