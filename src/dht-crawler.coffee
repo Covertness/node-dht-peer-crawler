@@ -19,8 +19,8 @@ defaultOptions =
 	messageTimeout: 60 * 1000
 	pingInterval: 3 * 60 * 1000
 	findInterval: 2 * 60 * 1000
-	infoHashTimeout: 60 * 60 * 1000
-	maxRouteTableLen: 500
+	infoHashTimeout: 30 * 60 * 1000
+	maxRouteTableLen: 1000
 	maxQueryNodesLen: 100
 	maxAnnounceNodesLen: 1000
 
@@ -93,14 +93,18 @@ module.exports =
 
 		getAllInfoHashs: () ->
 			date = new Date()
+			allAnnounceInfoHash = []
 			for item in @infoHashTable.entries()
-				infoHash = item[0]
-				torrent = item[1]
-				{
-					infoHash: infoHash
-					queryNodesNum: torrent.queryNodes.estimate()
-					announceNodesNum: torrent.announceNodes.estimate()
-				}
+				announceNodesLen = torrent.announceNodes.estimate()
+				if announceNodesLen > 0
+					infoHash = item[0]
+					torrent = item[1]
+					allAnnounceInfoHash.push {
+						infoHash: infoHash
+						queryNodesNum: torrent.queryNodes.estimate()
+						announceNodesNum: torrent.announceNodes.estimate()
+					}
+			allAnnounceInfoHash
 
 
 		getTorrent: (infoHash) ->
