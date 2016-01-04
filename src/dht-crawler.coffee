@@ -95,10 +95,10 @@ module.exports =
 			date = new Date()
 			allAnnounceInfoHash = []
 			for item in @infoHashTable.entries()
+				infoHash = item[0]
+				torrent = item[1]
 				announceNodesLen = torrent.announceNodes.estimate()
 				if announceNodesLen > 0
-					infoHash = item[0]
-					torrent = item[1]
 					allAnnounceInfoHash.push {
 						infoHash: infoHash
 						queryNodesNum: torrent.queryNodes.estimate()
