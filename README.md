@@ -3,7 +3,7 @@ A broker relay the dht messages to clients over MQTT/HTTP.
 
 ## Start
 ```bash
-$ apt-get install make g++
+$ apt-get install nodejs npm make g++
 $ make init
 $ make build
 $ node lib/dht-broker.js
