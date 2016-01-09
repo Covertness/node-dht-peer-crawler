@@ -91,14 +91,14 @@ module.exports =
 				{ip: node.address.ip, lastActive: date.toUTCString()}
 
 
-		getAllInfoHashs: () ->
+		getAllInfoHashs: (minAnnounceNodes) ->
 			date = new Date()
 			allAnnounceInfoHash = []
 			for item in @infoHashTable.entries()
 				infoHash = item[0]
 				torrent = item[1]
 				announceNodesLen = torrent.announceNodes.estimate()
-				if announceNodesLen > 0
+				if announceNodesLen >= minAnnounceNodes
 					allAnnounceInfoHash.push {
 						infoHash: infoHash
 						queryNodesNum: torrent.queryNodes.estimate()
@@ -211,7 +211,7 @@ module.exports =
 						addressStr = ipStr + ':' + port
 
 						torrent.announceNodes.insert addressStr
-						torrent.swarm.add addressStr
+						@addPeer infoHash, torrent, addressStr
 
 					torrent.lastActive = Date.now()
 				else if resp.nodes != undefined
@@ -362,7 +362,7 @@ module.exports =
 
 			torrent.announceNodes.insert addressStr
 			torrent.lastActive = Date.now()
-			torrent.swarm.add addressStr
+			@addPeer infoHashStr, torrent, addressStr
 
 			resp =
 				t: message.t
@@ -426,29 +426,33 @@ module.exports =
 
 
 		addInfoHash: (infoHash) ->
-			swarm = pws infoHash, @peerId
 			torrent =
 				queryNodes: hll()
 				announceNodes: hll()
-				swarm: swarm
 				lastActive: Date.now()
 				checkInterval: setInterval () =>
 					if Date.now() - torrent.lastActive >= @options.infoHashTimeout
 						clearInterval torrent.checkInterval
-						swarm.destroy()
+						torrent.swarm and torrent.swarm.destroy()
 						@infoHashTable.delete infoHash
 				, @options.infoHashTimeout
 
-			exchange = exchangeMetadata infoHash, (metadata) =>
-				torrent.metadata = bncode.decode metadata
-				console.log infoHash, 'got metadata'
-				swarm.destroy()
-
-			swarm.on 'wire', (wire) =>
-				exchange(wire)
-
 			@infoHashTable.set infoHash, torrent
 			torrent
+
+
+		addPeer: (infoHash, torrent, peerAddress) ->
+			if torrent.swarm == undefined
+				torrent.swarm = pws infoHash, @peerId
+				exchange = exchangeMetadata infoHash, (metadata) =>
+					torrent.metadata = bncode.decode metadata
+					console.log infoHash, 'got metadata'
+					torrent.swarm.destroy()
+
+				torrent.swarm.on 'wire', (wire) =>
+					exchange(wire)
+
+			torrent.swarm.add peerAddress
 
 
 		getClosestNodesBin: (id) ->
