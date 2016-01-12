@@ -21,8 +21,7 @@ defaultOptions =
 	findInterval: 2 * 60 * 1000
 	infoHashTimeout: 30 * 60 * 1000
 	maxRouteTableLen: 1000
-	maxQueryNodesLen: 100
-	maxAnnounceNodesLen: 1000
+	maxInfoHashTableLen: 15000
 
 module.exports =
 	class DHTCrawler extends events.EventEmitter
@@ -205,15 +204,16 @@ module.exports =
 						else
 							@addInfoHash infoHash
 
-					for i in [0..peersBin.length-1] by 6
-						ipStr = nodesBin[i] + "." + nodesBin[i + 1] + "." + nodesBin[i + 2] + "." + nodesBin[i + 3]
-						port = nodesBin.readUInt16BE(i + 4)
-						addressStr = ipStr + ':' + port
+					if torrent != undefined
+						for i in [0..peersBin.length-1] by 6
+							ipStr = nodesBin[i] + "." + nodesBin[i + 1] + "." + nodesBin[i + 2] + "." + nodesBin[i + 3]
+							port = nodesBin.readUInt16BE(i + 4)
+							addressStr = ipStr + ':' + port
 
-						torrent.announceNodes.insert addressStr
-						@addPeer infoHash, torrent, addressStr
+							torrent.announceNodes.insert addressStr
+							@addPeer infoHash, torrent, addressStr
 
-					torrent.lastActive = Date.now()
+						torrent.lastActive = Date.now()
 				else if resp.nodes != undefined
 					@addNodes resp.nodes
 
@@ -325,8 +325,9 @@ module.exports =
 				else
 					@addInfoHash infoHashStr
 
-			torrent.queryNodes.insert args.id.toString 'hex'
-			torrent.lastActive = Date.now()
+			if torrent != undefined
+				torrent.queryNodes.insert args.id.toString 'hex'
+				torrent.lastActive = Date.now()
 
 			nodesBin = @getClosestNodesBin args.info_hash
 			
@@ -353,16 +354,17 @@ module.exports =
 				else
 					@addInfoHash infoHashStr
 
-			ipStr = address.ip
-			port = if args.implied_port != undefined and args.implied_port == 1
-				address.port
-			else
-				args.port
-			addressStr = ipStr + ':' + port
+			if torrent != undefined
+				ipStr = address.ip
+				port = if args.implied_port != undefined and args.implied_port == 1
+					address.port
+				else
+					args.port
+				addressStr = ipStr + ':' + port
 
-			torrent.announceNodes.insert addressStr
-			torrent.lastActive = Date.now()
-			@addPeer infoHashStr, torrent, addressStr
+				torrent.announceNodes.insert addressStr
+				torrent.lastActive = Date.now()
+				@addPeer infoHashStr, torrent, addressStr
 
 			resp =
 				t: message.t
@@ -402,7 +404,6 @@ module.exports =
 			allNodes = @routeTable.toArray()
 
 			if allNodes.length > @options.maxRouteTableLen
-				console.log 'route table is overload'
 				return
 
 			existNode = @routeTable.get node.id
@@ -426,6 +427,9 @@ module.exports =
 
 
 		addInfoHash: (infoHash) ->
+			if @infoHashTable.length > @options.maxInfoHashTableLen
+				return undefined
+
 			torrent =
 				queryNodes: hll()
 				announceNodes: hll()
