@@ -12,15 +12,15 @@
   "author": "covertness",
   "license": "MIT",
   "dependencies": {
-    "bencode": "^0.7.0",
+    "bencode": "^2.0.0",
     "bncode": "^0.5.3",
     "collections": "^3.0.0",
     "cors": "^2.7.1",
     "express": "^4.13.3",
-    "hat": "0.0.3",
+    "hat": "^0.0.3",
     "hll": "^1.1.0",
     "ht": "0.0.2",
-    "k-bucket": "^0.6.0",
+    "k-bucket": "^5.0.0",
     "magnet-uri": "^5.1.1",
     "peer-wire-swarm": "^0.12.1"
   },
