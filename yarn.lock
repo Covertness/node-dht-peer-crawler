@@ -234,12 +234,6 @@ hat@^0.0.3:
   version "0.0.3"
   resolved "http://registry.npm.taobao.org/hat/download/hat-0.0.3.tgz#bb014a9e64b3788aed8005917413d4ff3d502d8a"
 
-hll@^1.1.1:
-  version "1.1.1"
-  resolved "http://registry.npm.taobao.org/hll/download/hll-1.1.1.tgz#f0e9e92c7e8b4816501057da7d20a5f70d4c3c6b"
-  dependencies:
-    murmurhash3 "^0.4.2"
-
 ht@0.0.2:
   version "0.0.2"
   resolved "http://registry.npm.taobao.org/ht/download/ht-0.0.2.tgz#22541dbfa48c852050d068a56407e19b71603482"
@@ -324,16 +318,6 @@ mime@1.4.1:
 ms@2.0.0:
   version "2.0.0"
   resolved "http://registry.npm.taobao.org/ms/download/ms-2.0.0.tgz#5608aeadfc00be6c2901df5f9861788de0d597c8"
-
-murmurhash3@^0.4.2:
-  version "0.4.2"
-  resolved "http://registry.npm.taobao.org/murmurhash3/download/murmurhash3-0.4.2.tgz#902a3d0c238091a124fe0eb9818215127cf7ffd7"
-  dependencies:
-    nan "^2.10.0"
-
-nan@^2.10.0:
-  version "2.11.1"
-  resolved "http://registry.npm.taobao.org/nan/download/nan-2.11.1.tgz#90e22bccb8ca57ea4cd37cc83d3819b52eea6766"
 
 negotiator@0.6.1:
   version "0.6.1"
