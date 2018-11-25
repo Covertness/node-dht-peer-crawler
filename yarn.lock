@@ -380,6 +380,10 @@ qs@6.5.2:
   version "6.5.2"
   resolved "http://registry.npm.taobao.org/qs/download/qs-6.5.2.tgz#cb3ae806e8740444584ef154ce8ee98d403f3e36"
 
+quick-lru@^2.0.0:
+  version "2.0.0"
+  resolved "http://registry.npm.taobao.org/quick-lru/download/quick-lru-2.0.0.tgz#32b017b28d1784631c8ab0a1ed2978e094dbe181"
+
 randombytes@^2.0.3:
   version "2.0.6"
   resolved "http://registry.npm.taobao.org/randombytes/download/randombytes-2.0.6.tgz#d302c522948588848a8d300c932b44c24231da80"
