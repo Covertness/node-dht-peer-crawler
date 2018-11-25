@@ -1,15 +1,24 @@
-import {TYPE, TYPE_CODE} from './lib/message'
+import Mixpanel from 'mixpanel'
 import Crawler from './lib/crawler'
 
-for (let key of Object.keys(TYPE)) {
-  console.log(key, TYPE[key])
-}
-
-for (let key of Object.keys(TYPE_CODE)) {
-  console.log(key, TYPE_CODE[key])
-}
+const mixpanel = Mixpanel.init(process.env.MIXPANEL_TOKEN, {
+  protocol: 'https'
+});
 
 const crawler = new Crawler()
+crawler.on('new_info_hash', (infoHashStr) => {
+  mixpanel.track('new_info_hash', {
+    distinct_id: infoHashStr
+  });
+})
+
+crawler.on('announce_peer', (infoHashStr, addressStr) => {
+  mixpanel.track('announce_peer', {
+    distinct_id: infoHashStr,
+    ip: addressStr.split(':')[0]
+  });
+})
+
 crawler.start().then(() => {
   console.log('start crawler success')
 }, (error) => {

@@ -21,6 +21,7 @@
     "ht": "0.0.2",
     "k-bucket": "^5.0.0",
     "magnet-uri": "^5.1.1",
+    "mixpanel": "^0.10.0",
     "peer-wire-swarm": "^0.12.1",
     "quick-lru": "^2.0.0"
   },
