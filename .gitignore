@@ -1,1 +1,4 @@
+.nodeid.data
+.peers.data
 node_modules/
+coverage/

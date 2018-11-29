@@ -12,6 +12,11 @@
   "author": "covertness",
   "license": "MIT",
   "jest": {
+    "collectCoverage": true,
+    "coverageReporters": [
+      "json",
+      "html"
+    ],
     "testMatch": [
       "**/__tests__/**/*.?(m)js?(x)",
       "**/?(*.)(spec|test).?(m)js?(x)"
