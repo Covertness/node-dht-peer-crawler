@@ -1,13 +1,14 @@
 {
-  "name": "node-dht-broker",
-  "version": "1.0.0",
-  "description": "A broker relay the dht messages to clients over tcp",
-  "main": "lib/dht-broker.js",
+  "name": "dht-peer-crawler",
+  "version": "2.0.0",
+  "description": "A fast and stable DHT crawler.",
+  "main": "lib/crawler.mjs",
   "scripts": {
     "test": "jest"
   },
   "keywords": [
-    "dht"
+    "dht",
+    "crawler"
   ],
   "author": "covertness",
   "license": "MIT",
@@ -37,16 +38,8 @@
   },
   "dependencies": {
     "bencode": "^2.0.0",
-    "bncode": "^0.5.3",
-    "collections": "^3.0.0",
-    "cors": "^2.7.1",
-    "express": "^4.13.3",
     "hat": "^0.0.3",
-    "ht": "0.0.2",
     "k-bucket": "^5.0.0",
-    "magnet-uri": "^5.1.1",
-    "mixpanel": "^0.10.0",
-    "peer-wire-swarm": "^0.12.1",
     "quick-lru": "^2.0.0"
   },
   "devDependencies": {

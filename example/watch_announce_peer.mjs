@@ -1,19 +1,22 @@
-# node-dht-peer-crawler
-A fast and stable DHT crawler.
-
-## Installation
-```bash
-$ npm install dht-peer-crawler
-```
-
-## Usage
-```js
-import Crawler from 'dht-peer-crawler'
+import Crawler from '..'
 
 const crawler = new Crawler()
 
 crawler.on('announce_peer', (infoHashStr, addressStr) => {
   console.log(`got a peer ${addressStr} on ${infoHashStr}`)
+})
+
+crawler.on('_find_once', () => {
+  console.log(`route table length: ${crawler.routeTable.count()}`)
+  console.log(`info_hash table length: ${crawler.infoHashTable.size}`)
+  let foundInfoHashCount = 0
+  let queriedInfoHashCount = 0
+  crawler.infoHashTable.forEach(info => {
+    foundInfoHashCount += info.announceNodes.size
+    queriedInfoHashCount += info.queryNodes.size
+  })
+  console.log(`found info_hash length: ${foundInfoHashCount}`)
+  console.log(`queried info_hash length: ${queriedInfoHashCount}`)
 })
 
 crawler.start().then(() => {
@@ -34,22 +37,3 @@ signalTraps.map(type => {
     }
   })
 })
-```
-
-## Test
-```bash
-$ npm test
-```
-
-## API
-#### `crawler = new Crawler(listenPort)`
-
-Create a new crawler instance.
-
-#### `crawler.on('announce_peer', [infoHashStr, addressStr])`
-
-Emitted when received an `announce_peer` message.
-
-#### `crawler.on('new_info_hash', [infoHashStr])`
-
-Emitted when find a new `info_hash`.
