@@ -1,10 +1,14 @@
 {
   "name": "dht-peer-crawler",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A fast and stable DHT crawler.",
   "main": "lib/crawler.mjs",
   "scripts": {
     "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Covertness/node-dht-peer-crawler.git"
   },
   "keywords": [
     "dht",
@@ -12,6 +16,9 @@
   ],
   "author": "covertness",
   "license": "MIT",
+  "engines": {
+    "node": ">=8.11.0"
+  },
   "jest": {
     "collectCoverage": true,
     "coverageReporters": [

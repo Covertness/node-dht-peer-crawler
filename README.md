@@ -3,6 +3,8 @@
 [![Travis Build Status](https://travis-ci.com/Covertness/node-dht-peer-crawler.svg?branch=master)](https://travis-ci.com/Covertness/node-dht-peer-crawler)
 [![Coverage Status](https://coveralls.io/repos/github/Covertness/node-dht-peer-crawler/badge.svg?branch=master)](https://coveralls.io/github/Covertness/node-dht-peer-crawler?branch=master)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![npm version](https://badge.fury.io/js/dht-peer-crawler.svg)](http://badge.fury.io/js/dht-peer-crawler)
+![Downloads](https://img.shields.io/npm/dm/dht-peer-crawler.svg?style=flat)
 
 A fast and stable DHT crawler.
 
