@@ -45,7 +45,6 @@
   },
   "dependencies": {
     "bencode": "^2.0.0",
-    "hat": "^0.0.3",
     "k-bucket": "^5.0.0",
     "quick-lru": "^2.0.0"
   },
