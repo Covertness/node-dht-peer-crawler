@@ -1,4 +1,7 @@
 # node-dht-peer-crawler
+
+[![Travis Build Status](https://travis-ci.com/Covertness/node-dht-peer-crawler.svg?branch=master)](https://travis-ci.com/Covertness/node-dht-peer-crawler)
+
 A fast and stable DHT crawler.
 
 ## Installation
