@@ -40,12 +40,35 @@ describe('message', () => {
     await crawler.stop()
   })
 
+  describe('collection', () => {
+    it('get_more_peers', () => {
+      crawler.getPeers = jest.fn()
+
+      crawler.addInfoHash(infoHash.toString('hex'))
+
+      crawler.getMorePeers()
+      expect(crawler.getPeers).toHaveBeenCalledTimes(1) // bootstrapNode
+    })
+
+    it('announce_peers', () => {
+      crawler.announcePeer = jest.fn()
+
+      crawler.addNode({ id: new Buffer('gw0S7yYnVtiC8A22GarM2RXsoo8=', 'base64'), address: address })
+      const nodeWithToken = crawler.addNode({ id: new Buffer('AhEtNLOoSbSvIK4rW+gyWVmbsPI=', 'base64'), address: address })
+      nodeWithToken.refreshToken('aoeusnth')
+
+      crawler.announcePeers(infoHash.toString('hex'), address.port)
+      expect(crawler.announcePeer).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('send', () => {
     const remoteNode = new Node(
       new Buffer('AhEtNLOoSbSvIK4rW+gyWVmbsPI=', 'base64'),
       address,
       new Date()
     )
+    remoteNode.refreshToken('aoeusnth')
 
     it('ping', () => {
       crawler.ping(remoteNode)
@@ -87,7 +110,7 @@ describe('message', () => {
 
     it('get_peers', () => {
       const torrent = crawler.addInfoHash(infoHash.toString('hex'))
-      crawler.getPeers(torrent, infoHash, address)
+      crawler.getPeers(torrent, infoHash, remoteNode)
 
       const networkMethod = Network.mock.instances[0].sendMessage
       expect(networkMethod).toHaveBeenCalledTimes(1)
@@ -107,8 +130,26 @@ describe('message', () => {
       })
       createQueryMessage.mock.calls[0][2]({
         id: remoteNode.id, 
-        values: QueryMessage.serializePeers([peer])
+        values: QueryMessage.serializePeers([[peer, {address: peer}]])
       })
+    })
+
+    it('announce_peer', () => {
+      crawler.announcePeer(infoHash, address.port, remoteNode)
+
+      const networkMethod = Network.mock.instances[0].sendMessage
+      expect(networkMethod).toHaveBeenCalledTimes(1)
+
+      const req = networkMethod.mock.calls[0][0]
+      expect(req.type).toEqual(TYPE.q)
+      expect(req.action).toEqual('announce_peer')
+      expect(req.params.id).toEqual(crawler.nodeId)
+      expect(req.params.info_hash).toEqual(infoHash)
+      expect(req.params.port).toEqual(address.port)
+      expect(req.params.token).toEqual(remoteNode.token)
+
+      const createQueryMessage = crawler.createQueryMessage
+      expect(createQueryMessage).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -196,7 +237,7 @@ describe('message', () => {
         expect(resp.response.id).toEqual(crawler.nodeId)
         expect(resp.response.token).toEqual(crawler.token)
 
-        expect(resp.response.values).toEqual(QueryMessage.serializePeers([peer]))
+        expect(resp.response.values).toEqual(QueryMessage.serializePeers([[peer, {address: peer}]]))
 
         const respAddress = networkMethod.mock.calls[0][1]
         expect(respAddress).toEqual(address)

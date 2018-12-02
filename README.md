@@ -53,6 +53,10 @@ $ npm test
 
 Create a new crawler instance.
 
+#### `crawler.announcePeers(infoHashStr, port)`
+
+announce the peer.
+
 #### `crawler.on('announce_peer', [infoHashStr, addressStr])`
 
 Emitted when received an `announce_peer` message.
