@@ -57,7 +57,7 @@ Create a new crawler instance.
 
 announce the peer.
 
-#### `crawler.on('announce_peer', [infoHashStr, addressStr])`
+#### `crawler.on('announce_peer', [infoHashStr, addressStr, impliedPort, torrent])`
 
 Emitted when received an `announce_peer` message.
 
