@@ -42,6 +42,10 @@ signalTraps.map(type => {
   })
 })
 ```
+run with the command:
+```
+$ node --experimental-specifier-resolution=node app.js
+```
 
 ## Test
 ```bash
